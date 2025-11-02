@@ -1,0 +1,6 @@
+.env
+venv/
+__pycache__/
+data/extra
+data/working_faiss
+*.ipynb

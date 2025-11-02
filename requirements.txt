@@ -1,0 +1,10 @@
+numpy
+faiss-cpu
+pickle-mixin
+fastapi
+uvicorn
+beautifulsoup4
+openai
+python-dotenv
+jinja2
+pinecone
