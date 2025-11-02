@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 import os
 from pinecone_utils import search_quran_pinecone, search_hadith_pinecone
 from utils import load_lang  
-
+import uvicorn
 load_dotenv()
 
 QURAN_INDEX = os.getenv("QURAN_INDEX")
@@ -126,3 +126,8 @@ async def search(
 
 # To run the app, use the command:
 # uvicorn main:app --reload
+
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
