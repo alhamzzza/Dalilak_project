@@ -580,12 +580,11 @@
       <form method="POST" action="/search">
         <div class="search-row">
           <input type="text" name="query" placeholder="{{ texts.search_placeholder }}" value="{{ query or '' }}" required>
-          <input type="number" name="top_k" min="1" max="20" value="{{ top_k or 5 }}" title="{{ texts.results_count }}">
+          <input type="number" name="top_k" min="1" max="10" value="{{ top_k or 5 }}" title="{{ texts.results_count }}">
         </div>
         <div class="options">
-          <label><input type="checkbox" name="include_quran" {% if include_quran %}checked{% endif %}> {{ texts.quran_label }}</label>
-          <label><input type="checkbox" name="include_hadith" {% if include_hadith %}checked{% endif %}> {{ texts.hadith_label }}</label>
-        </div>
+          <label><input type="checkbox" name="include_quran" {% if include_quran or not query %}checked{% endif %}> {{ texts.quran_label }}</label>
+        <label><input type="checkbox" name="include_hadith" {% if include_hadith or not query %}checked{% endif %}> {{ texts.hadith_label }}</label> </div>
         <input type="hidden" name="lang" id="current-lang" value="{{ lang or 'en' }}">
         <button type="submit" class="search-btn">🔍 {{ texts.search_btn }}</button>
       </form>
