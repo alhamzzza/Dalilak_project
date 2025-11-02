@@ -8,3 +8,4 @@ openai
 python-dotenv
 jinja2
 pinecone
+python-multipart
