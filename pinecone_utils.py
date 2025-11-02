@@ -33,7 +33,6 @@ def build_quran_tafsir_index_pinecone(
     Processes only the first 10 entries for now.
     """
 
-    # === Initialize Pinecone ===
     if pinecone_api_key is None:
         pinecone_api_key = os.getenv("PINECONE_API_KEY")
     if not pinecone_api_key:
@@ -41,7 +40,6 @@ def build_quran_tafsir_index_pinecone(
 
     pc = Pinecone(api_key=pinecone_api_key)
 
-    # Create index if not existing
     if index_name not in pc.list_indexes().names():
         pc.create_index(
             name=index_name,
@@ -49,11 +47,10 @@ def build_quran_tafsir_index_pinecone(
             metric="cosine",
             spec=ServerlessSpec(cloud="aws", region="us-east-1")
         )
-        print(f"🆕 Created new Pinecone index '{index_name}'")
+        print(f" Created new Pinecone index '{index_name}'")
 
     index = pc.Index(index_name)
 
-    # === Load JSON ===
     with open(merged_path, "r", encoding="utf-8") as f:
         merged = json.load(f)
 
@@ -80,18 +77,16 @@ def build_quran_tafsir_index_pinecone(
         metadata.append(clean_metadata(flat_meta))
 
     total = len(texts)
-    print(f"📖 Total items to embed: {total}")
+    print(f" Total items to embed: {total}")
 
-    # === Check for checkpoint ===
     done = 0
     saved_meta = []
     if os.path.exists(meta_path):
         with open(meta_path, "rb") as f:
             saved_meta = pickle.load(f)
         done = len(saved_meta)
-        print(f"🔁 Resuming from checkpoint: {done}/{total}")
+        print(f" Resuming from checkpoint: {done}/{total}")
 
-    # === Process and upload ===
     batch = []
     for i in tqdm(range(done, total), desc="Embedding and uploading"):
         text = texts[i]
@@ -104,20 +99,19 @@ def build_quran_tafsir_index_pinecone(
             "metadata": metadata[i]
         })
 
-        # Upload and checkpoint every N items
         if (i + 1) % save_interval == 0 or i == total - 1:
-            print(f"⏫ Upserting batch {i + 1 - len(batch) + 1}–{i + 1} to Pinecone...")
+            print(f" Upserting batch {i + 1 - len(batch) + 1}–{i + 1} to Pinecone...")
             index.upsert(vectors=batch, namespace=namespace)
 
             saved_meta.extend([v["metadata"] for v in batch])
             with open(meta_path, "wb") as f:
                 pickle.dump(saved_meta, f)
 
-            print(f"✅ Checkpoint saved ({i + 1}/{total})")
+            print(f" Checkpoint saved ({i + 1}/{total})")
             batch = []
             time.sleep(1)
 
-    print(f"\n🎉 Done! Indexed {total} items into Pinecone index '{index_name}'.")
+    print(f"\n Done! Indexed {total} items into Pinecone index '{index_name}'.")
     print(f"Metadata checkpoint saved to {meta_path}")
 
 
@@ -132,7 +126,6 @@ def build_hadith_index_pinecone(
 ):
     """Build or resume a Pinecone index for hadith dataset (Arabic + English only)."""
 
-    # === Init Pinecone ===
     if pinecone_api_key is None:
         pinecone_api_key = os.getenv("PINECONE_API_KEY")
     if not pinecone_api_key:
@@ -147,11 +140,10 @@ def build_hadith_index_pinecone(
             metric="cosine",
             spec=ServerlessSpec(cloud="aws", region="us-east-1")
         )
-        print(f"🆕 Created Pinecone index '{index_name}'")
+        print(f" Created Pinecone index '{index_name}'")
 
     index = pc.Index(index_name)
 
-    # === Load JSON data ===
     with open(json_path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
@@ -159,18 +151,16 @@ def build_hadith_index_pinecone(
     chapters = {c["id"]: c for c in data.get("chapters", [])}
     source_name = data.get("metadata", {}).get("english", {}).get("title", "Unknown").replace(" ", "")
 
-    print(f"📘 Found {len(hadiths)} hadiths in dataset ({source_name})")
+    print(f" Found {len(hadiths)} hadiths in dataset ({source_name})")
 
-    # === Resume checkpoint if exists ===
     done = 0
     saved_meta = []
     if os.path.exists(meta_path):
         with open(meta_path, "rb") as f:
             saved_meta = pickle.load(f)
         done = len(saved_meta)
-        print(f"🔁 Resuming from checkpoint: {done}/{len(hadiths)}")
+        print(f" Resuming from checkpoint: {done}/{len(hadiths)}")
 
-    # === Build embeddings + metadata ===
     batch = []
     for i in tqdm(range(done, len(hadiths)), desc=f"Embedding {source_name} hadiths"):
         h = hadiths[i]
@@ -178,10 +168,8 @@ def build_hadith_index_pinecone(
         arabic = h.get("arabic", "").strip()
         english_text = h.get("english", {}).get("text", "").strip()
 
-        # Only Arabic + English for embedding
         combined = f"Arabic: {arabic}\nEnglish: {english_text}"
 
-        # Metadata (lightweight)
         chapter = chapters.get(h.get("chapterId"), {})
         meta = clean_metadata({
             "id": h.get("id"),
@@ -192,27 +180,24 @@ def build_hadith_index_pinecone(
             "chapter_ar": chapter.get("arabic", "unknown"),
         })
 
-        # Unique vector ID: source-chapter-hadith
         vec_id = f"{source_name.lower()}-{h.get('chapterId', '0')}-{h.get('id', i)}"
 
-        # Generate embedding
         emb = get_embedding(combined[:7000])
         batch.append({"id": vec_id, "values": emb, "metadata": meta})
 
-        # Upload + checkpoint periodically
         if (i + 1) % save_interval == 0 or i == len(hadiths) - 1:
-            print(f"⏫ Upserting batch {i + 1 - len(batch) + 1}–{i + 1} to Pinecone...")
+            print(f" Upserting batch {i + 1 - len(batch) + 1}–{i + 1} to Pinecone...")
             index.upsert(vectors=batch, namespace=namespace)
 
             saved_meta.extend([v["metadata"] for v in batch])
             with open(meta_path, "wb") as f:
                 pickle.dump(saved_meta, f)
 
-            print(f"✅ Checkpoint saved ({i + 1}/{len(hadiths)})")
+            print(f" Checkpoint saved ({i + 1}/{len(hadiths)})")
             batch = []
             time.sleep(1)
 
-    print(f"\n🎉 Done! Indexed {len(hadiths)} hadiths into Pinecone index '{index_name}'.")
+    print(f"\n Done! Indexed {len(hadiths)} hadiths into Pinecone index '{index_name}'.")
     print(f"Metadata checkpoint saved to {meta_path}")
 
 def search_quran_pinecone(query, top_k, index_name, pinecone_api_key):
@@ -232,7 +217,6 @@ def search_quran_pinecone(query, top_k, index_name, pinecone_api_key):
     for match in results["matches"]:
         meta = match["metadata"]
         
-        # Return what's in metadata - main.py will handle local lookup
         output.append({
             "vector_id": match["id"],  # e.g., "item-0"
             "score": round(match["score"] * 100, 2),
@@ -263,15 +247,12 @@ def search_hadith_pinecone(query, top_k, index_name, pinecone_api_key):
     for match in results["matches"]:
         meta = match["metadata"]
         
-        # Extract hadith ID from vector_id (format: "source-chapter-hadithid")
         vector_id = match["id"]
         hadith_id = None
         
-        # Try to parse hadith ID from vector_id
-        # Format examples: "sahibukhari-1-1", "sahibukhari-0-123"
         parts = vector_id.split("-")
         if len(parts) >= 3:
-            hadith_id = parts[-1]  # Last part is hadith ID
+            hadith_id = parts[-1]  
         
         output.append({
             "vector_id": vector_id,

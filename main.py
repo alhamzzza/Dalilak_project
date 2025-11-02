@@ -123,3 +123,6 @@ async def search(
             "lang": lang,
         },
     )
+
+# To run the app, use the command:
+# uvicorn main:app --reload
